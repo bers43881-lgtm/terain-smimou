@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}{{ t.settings_title }} – Terrain Smimou{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-0">
+            <i class="bi bi-sliders me-2 text-success"></i>{{ t.settings_title }}
+        </h4>
+        <small class="text-muted">{{ t.settings_sub }}</small>
+    </div>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>{{ t.dashboard_title }}
+    </a>
+</div>
+
+<!-- Weekly Limit Card -->
+<div class="card p-4 mb-4" style="border-left: 4px solid #2e7d32;">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h5 class="fw-bold mb-1">
+                <i class="bi bi-calendar-week me-2 text-success"></i>{{ t.weekly_limit_title }}
+            </h5>
+            <small class="text-muted">{{ t.weekly_limit_sub }}</small>
+        </div>
+        <div class="col-md-4 mt-3 mt-md-0">
+            <form method="POST" class="d-flex gap-2 align-items-center">
+                <input type="hidden" name="action" value="set_limit">
+                <input type="number" name="weekly_limit" class="form-control"
+                       value="{{ weekly_limit }}" min="1" max="20" style="width:100px;">
+                <button type="submit" class="btn btn-green fw-semibold px-4">
+                    <i class="bi bi-check2 me-1"></i>{{ t.save_btn }}
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="mt-3 alert alert-success py-2 mb-0">
+        <i class="bi bi-info-circle me-2"></i>
+        {{ t.weekly_limit_info.replace('%d', weekly_limit|string) }}
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Current slots -->
+    <div class="col-lg-7">
+        <div class="card p-4">
+            <h5 class="fw-bold mb-3">
+                <i class="bi bi-list-check me-2 text-success"></i>{{ t.slot_list_title }}
+            </h5>
+            {% if all_slots %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{{ t.start_time }}</th>
+                            <th>{{ t.end_time }}</th>
+                            <th>{{ t.col_status }}</th>
+                            <th>{{ t.col_actions }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for slot in all_slots %}
+                        <tr>
+                            <td class="fw-semibold">
+                                <i class="bi bi-clock me-1 text-muted"></i>{{ slot.start_time }}
+                            </td>
+                            <td>{{ slot.end_time }}</td>
+                            <td>
+                                {% if slot.is_active %}
+                                <span class="badge bg-success">{{ t.active }}</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ t.inactive }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex gap-2">
+                                    <!-- Toggle -->
+                                    <form method="POST">
+                                        <input type="hidden" name="action"  value="toggle">
+                                        <input type="hidden" name="slot_id" value="{{ slot.id }}">
+                                        <button type="submit"
+                                                class="btn btn-sm {% if slot.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}">
+                                            <i class="bi bi-{% if slot.is_active %}pause-circle{% else %}play-circle{% endif %}"></i>
+                                        </button>
+                                    </form>
+                                    <!-- Delete -->
+                                    <form method="POST"
+                                          onsubmit="return confirm('{{ t.delete_btn }} ?')">
+                                        <input type="hidden" name="action"  value="delete">
+                                        <input type="hidden" name="slot_id" value="{{ slot.id }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center py-3">
+                <i class="bi bi-inbox fs-3 d-block mb-2"></i>Aucun créneau configuré.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Add new slot -->
+    <div class="col-lg-5">
+        <div class="card p-4">
+            <h5 class="fw-bold mb-3">
+                <i class="bi bi-plus-circle me-2 text-success"></i>{{ t.add_slot_title }}
+            </h5>
+            <form method="POST">
+                <input type="hidden" name="action" value="add">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">{{ t.start_time }}</label>
+                    <select name="start_time" class="form-select" required>
+                        <option value="">--</option>
+                        {% for h in ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00'] %}
+                        <option>{{ h }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label fw-semibold">{{ t.end_time }}</label>
+                    <select name="end_time" class="form-select" required>
+                        <option value="">--</option>
+                        {% for h in ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00','24:00'] %}
+                        <option>{{ h }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-green w-100 fw-bold">
+                    <i class="bi bi-plus-circle me-1"></i>{{ t.add_slot_btn }}
+                </button>
+            </form>
+        </div>
+
+        <div class="card p-3 mt-3" style="background:#e8f5e9;border-left:4px solid #2e7d32;">
+            <p class="mb-0 small">
+                <i class="bi bi-info-circle me-2 text-success"></i>
+                Les créneaux <strong>actifs</strong> apparaissent dans le planning public.
+                Les créneaux <strong>inactifs</strong> sont masqués.
+            </p>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

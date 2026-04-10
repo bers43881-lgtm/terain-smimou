@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}{{ t.dashboard_title }} – Terrain Smimou{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-0">
+            <i class="bi bi-speedometer2 me-2 text-success"></i>{{ t.dashboard_title }}
+        </h4>
+        <small class="text-muted">{{ t.connected_as }} <strong>{{ session.admin_username }}</strong></small>
+    </div>
+    <a href="{{ url_for('admin_new_reservation') }}" class="btn btn-green">
+        <i class="bi bi-plus-circle me-1"></i>{{ t.add_reservation }}
+    </a>
+</div>
+
+<!-- Weekly Limit Control -->
+<div class="card p-3 mb-4" style="background: linear-gradient(135deg,#e8f5e9,#f1f8e9); border-left: 5px solid #2e7d32;">
+    <div class="row align-items-center g-2">
+        <div class="col-auto">
+            <i class="bi bi-calendar-week text-success" style="font-size:2rem;"></i>
+        </div>
+        <div class="col">
+            <div class="fw-bold">{{ t.weekly_limit_title }}</div>
+            <small class="text-muted">{{ t.weekly_limit_sub }}</small>
+        </div>
+        <div class="col-auto">
+            <form method="POST" class="d-flex align-items-center gap-2">
+                <input type="hidden" name="action" value="set_limit">
+                <span class="fw-bold text-success fs-5">{{ weekly_limit }}</span>
+                <span class="text-muted small">réserv./sem.</span>
+                <input type="number" name="weekly_limit" class="form-control form-control-sm"
+                       value="{{ weekly_limit }}" min="1" max="20" style="width:70px;">
+                <button type="submit" class="btn btn-green btn-sm px-3">
+                    <i class="bi bi-check2"></i> {{ t.save_btn }}
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card p-3 text-center">
+            <div class="fw-bold fs-2 text-dark">{{ stats.total }}</div>
+            <div class="text-muted small">{{ t.total }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card p-3 text-center">
+            <div class="fw-bold fs-2 text-success">{{ stats.confirmées }}</div>
+            <div class="text-muted small">{{ t.confirmed_count }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card p-3 text-center">
+            <div class="fw-bold fs-2 text-warning">{{ stats.en_attente }}</div>
+            <div class="text-muted small">{{ t.waiting_count }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card p-3 text-center">
+            <div class="fw-bold fs-2 text-danger">{{ stats.annulées }}</div>
+            <div class="text-muted small">{{ t.cancelled_count }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card p-3 mb-3">
+    <form method="GET" class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label small fw-semibold mb-1">{{ t.filter_status }}</label>
+            <select name="statut" class="form-select form-select-sm">
+                <option value="">{{ t.all_statuses }}</option>
+                <option value="confirmé"   {% if statut_filter=='confirmé'   %}selected{% endif %}>{{ t.confirmed }}</option>
+                <option value="en attente" {% if statut_filter=='en attente' %}selected{% endif %}>{{ t.waiting }}</option>
+                <option value="annulé"     {% if statut_filter=='annulé'     %}selected{% endif %}>{{ t.cancelled }}</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small fw-semibold mb-1">{{ t.filter_date }}</label>
+            <input type="date" name="date" class="form-control form-control-sm" value="{{ date_filter }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small fw-semibold mb-1">{{ t.filter_sport }}</label>
+            <select name="sport" class="form-select form-select-sm">
+                <option value="">{{ t.all_sports }}</option>
+                {% for s in sports %}
+                <option value="{{ s }}" {% if sport_filter==s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+            <button type="submit" class="btn btn-green btn-sm flex-fill">
+                <i class="bi bi-funnel me-1"></i>{{ t.filter_btn }}
+            </button>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-x"></i>
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- Table -->
+<div class="card">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+        <span class="fw-semibold">
+            <i class="bi bi-table me-2 text-success"></i>{{ t.nav_planning }} ({{ reservations|length }})
+        </span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>{{ t.col_name }}</th>
+                    <th>{{ t.col_phone }}</th>
+                    <th>{{ t.col_date }}</th>
+                    <th>{{ t.col_slot }}</th>
+                    <th>{{ t.col_sport }}</th>
+                    <th>{{ t.col_status }}</th>
+                    <th>{{ t.col_registered }}</th>
+                    <th>{{ t.col_actions }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in reservations %}
+                <tr>
+                    <td class="text-muted small">{{ r.id }}</td>
+                    <td class="fw-semibold">{{ r.nom }}</td>
+                    <td><a href="tel:{{ r.telephone }}" class="text-decoration-none text-dark">{{ r.telephone }}</a></td>
+                    <td><i class="bi bi-calendar3 me-1 text-muted"></i>{{ r.date_reservation.strftime('%d/%m/%Y') }}</td>
+                    <td><i class="bi bi-clock me-1 text-muted"></i>{{ r.heure_debut }} – {{ r.heure_fin }}</td>
+                    <td><span class="badge bg-secondary">{{ r.sport }}</span></td>
+                    <td><span class="badge bg-{{ r.statut_badge }}">{{ r.statut }}</span></td>
+                    <td class="text-muted small">{{ r.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td>
+                        <div class="d-flex gap-1">
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                                        data-bs-toggle="dropdown">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    {% for s, icon in [('confirmé','check-circle text-success'),('en attente','hourglass text-warning'),('annulé','x-circle text-danger')] %}
+                                    <li>
+                                        <form method="POST" action="{{ url_for('update_statut', rid=r.id) }}">
+                                            <input type="hidden" name="statut" value="{{ s }}">
+                                            <button type="submit" class="dropdown-item">
+                                                <i class="bi bi-{{ icon }} me-2"></i>{{ s|capitalize }}
+                                            </button>
+                                        </form>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            <form method="POST" action="{{ url_for('delete_reservation', rid=r.id) }}"
+                                  onsubmit="return confirm('{{ t.delete_confirm }}')">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-4">
+                        <i class="bi bi-inbox fs-3 d-block mb-2"></i>{{ t.no_reservations }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

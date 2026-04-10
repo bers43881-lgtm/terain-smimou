@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}{{ t.new_res_title }} – Admin{% endblock %}
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card p-4">
+            <h4 class="fw-bold mb-4">
+                <i class="bi bi-calendar-plus me-2 text-success"></i>{{ t.new_res_title }}
+            </h4>
+            <form method="POST">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">
+                            {{ t.full_name }} <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" name="nom" class="form-control" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">
+                            {{ t.phone }} <span class="text-danger">*</span>
+                        </label>
+                        <input type="tel" name="telephone" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">
+                            {{ t.date_label }} <span class="text-danger">*</span>
+                        </label>
+                        <input type="date" name="date_reservation" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">
+                            {{ t.start_time_label }} <span class="text-danger">*</span>
+                        </label>
+                        <select name="heure_debut" class="form-select" required>
+                            <option value="">--</option>
+                            {% for s, e in slots %}
+                            <option value="{{ s }}">{{ s }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">
+                            {{ t.end_time_label }} <span class="text-danger">*</span>
+                        </label>
+                        <select name="heure_fin" class="form-select" required>
+                            <option value="">--</option>
+                            {% for s, e in slots %}
+                            <option value="{{ e }}">{{ e }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">
+                            {{ t.sport_label }} <span class="text-danger">*</span>
+                        </label>
+                        <select name="sport" class="form-select" required>
+                            <option value="">{{ t.sport_ph }}</option>
+                            {% for s in t.sports %}
+                            <option>{{ s }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">{{ t.status_label }}</label>
+                        <select name="statut" class="form-select">
+                            <option value="en attente">{{ t.waiting }}</option>
+                            <option value="confirmé">{{ t.confirmed }}</option>
+                            <option value="annulé">{{ t.cancelled }}</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">{{ t.notes_label }}</label>
+                        <textarea name="notes" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="col-12 mt-2">
+                        <button type="submit" class="btn btn-green px-4 fw-bold">
+                            <i class="bi bi-plus-circle me-1"></i>{{ t.add_btn }}
+                        </button>
+                        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary ms-2">
+                            {{ t.cancel_btn }}
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

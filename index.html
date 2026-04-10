@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}{{ t.nav_home }} – Terrain Smimou{% endblock %}
+{% block content %}
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card p-4" style="background: linear-gradient(135deg, #2e7d32, #43a047); color: #fff; border-radius: 16px;">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="fw-bold mb-2"><i class="bi bi-trophy-fill me-2"></i>Terrain de Proximité de Smimou</h1>
+                    <p class="mb-3 opacity-75">{{ t.hero_subtitle }}</p>
+                    <a href="{{ url_for('planning') }}" class="btn btn-light fw-bold me-2">
+                        <i class="bi bi-calendar-plus me-1"></i>{{ t.book_now }}
+                    </a>
+                </div>
+                <div class="col-md-4 text-center d-none d-md-block">
+                    <i class="bi bi-dribbble" style="font-size: 6rem; opacity: .3;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card p-3 text-center">
+            <i class="bi bi-clock text-success fs-2 mb-2"></i>
+            <h6 class="fw-bold">{{ t.hours_label }}</h6>
+            <p class="text-muted small mb-0">{{ t.hours_value }}</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 text-center">
+            <i class="bi bi-geo-alt text-success fs-2 mb-2"></i>
+            <h6 class="fw-bold">{{ t.location_label }}</h6>
+            <p class="text-muted small mb-0">{{ t.location_value }}</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 text-center">
+            <i class="bi bi-telephone text-success fs-2 mb-2"></i>
+            <h6 class="fw-bold">{{ t.contact_label }}</h6>
+            <p class="text-muted small mb-0">+212 6XX XXX XXX</p>
+        </div>
+    </div>
+</div>
+
+{% if upcoming %}
+<div class="card p-4">
+    <h5 class="fw-bold mb-3">
+        <i class="bi bi-calendar-check me-2 text-success"></i>{{ t.upcoming_bookings }}
+    </h5>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>{{ t.col_date }}</th>
+                    <th>{{ t.col_slot }}</th>
+                    <th>{{ t.col_sport }}</th>
+                    {% if session.get('admin_logged_in') %}
+                    <th>{{ t.col_name }}</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in upcoming %}
+                <tr>
+                    <td><i class="bi bi-calendar3 me-1 text-muted"></i>{{ r.date_reservation.strftime('%d/%m/%Y') }}</td>
+                    <td><i class="bi bi-clock me-1 text-muted"></i>{{ r.heure_debut }} – {{ r.heure_fin }}</td>
+                    <td><span class="badge bg-success">{{ r.sport }}</span></td>
+                    {% if session.get('admin_logged_in') %}
+                    <td>{{ r.nom }}</td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

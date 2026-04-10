@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+{% block title %}{{ t.planning_title }} – {{ week_start.strftime('%d/%m') }} → {{ week_end.strftime('%d/%m/%Y') }}{% endblock %}
+{% block head %}
+<style>
+    .planning-table { font-size: .82rem; }
+    .planning-table th { white-space: nowrap; text-align: center; vertical-align: middle; }
+    .planning-table td { vertical-align: middle; padding: 5px 7px; min-width: 130px; }
+    .day-col { width: 90px; font-weight: 700; text-align: center; white-space: nowrap; }
+    .slot-free {
+        background: #f1f8e9; color: #4caf50; text-align: center;
+        font-size: .78rem; border-radius: 6px; padding: 8px 4px;
+        cursor: pointer; transition: background .15s;
+    }
+    .slot-free:hover { background: #c8e6c9; }
+    .slot-free .reserve-btn {
+        color: #388e3c; font-size: .75rem; font-weight: 600;
+        background: none; border: none; padding: 0; cursor: pointer;
+    }
+    .slot-booked {
+        background: #ffebee; border-left: 3px solid #c62828;
+        border-radius: 6px; padding: 6px 8px; font-size: .78rem;
+        text-align: center;
+    }
+    .slot-mine {
+        background: #e3f2fd; border-left: 3px solid #1565c0;
+        border-radius: 6px; padding: 6px 8px; font-size: .78rem;
+        text-align: center; color: #1565c0;
+    }
+    /* Admin-only detailed styles */
+    .slot-booked.admin-confirmed { background: #e8f5e9; border-left-color: #2e7d32; }
+    .slot-booked.admin-waiting   { background: #fff8e1; border-left-color: #f9a825; }
+    .slot-booked.admin-cancelled { background: #fce4ec; border-left-color: #c62828; opacity: .7; }
+    [dir="rtl"] .slot-booked  { border-left: none; border-right: 3px solid #c62828; }
+    [dir="rtl"] .slot-mine    { border-left: none; border-right: 3px solid #1565c0; }
+    [dir="rtl"] .slot-booked.admin-confirmed { border-right-color: #2e7d32; }
+    [dir="rtl"] .slot-booked.admin-waiting   { border-right-color: #f9a825; }
+    [dir="rtl"] .slot-booked.admin-cancelled { border-right-color: #c62828; }
+    .slot-name  { font-weight: 600; display: block; }
+    .slot-sport { color: #555; font-size: .72rem; }
+    .today-row  { background: #e8f5e9 !important; }
+    .day-num    { font-size: 1.1rem; font-weight: 800; }
+    .day-label  { font-size: .68rem; color: #888; }
+    .weekend-row td.day-col { color: #c62828; }
+    .modal-header { background: #2e7d32; color: #fff; }
+    .modal-header .btn-close { filter: invert(1); }
+    .limit-bar { height: 6px; border-radius: 3px; background: #e0e0e0; overflow: hidden; }
+    .limit-bar-fill { height: 100%; border-radius: 3px; transition: width .3s; }
+    .week-header {
+        background: linear-gradient(135deg, #1b5e20, #2e7d32);
+        color: #fff; border-radius: 10px; padding: 12px 20px;
+        margin-bottom: 16px;
+    }
+    .day-badge-today {
+        background: #2e7d32; color: #fff;
+        font-size: .6rem; border-radius: 4px;
+        padding: 1px 5px; display: inline-block; margin-top: 2px;
+    }
+</style>
+{% endblock %}
+{% block content %}
+
+<!-- Week header & navigation -->
+<div class="week-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-0">
+            <i class="bi bi-calendar-week me-2"></i>{{ t.planning_title }}
+        </h4>
+        <small class="opacity-75">
+            {{ week_start.strftime('%d %B') }} – {{ week_end.strftime('%d %B %Y') }}
+        </small>
+    </div>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+        {% if not is_admin and is_logged_in %}
+        <div class="text-center text-white" style="min-width:110px;">
+            <small class="d-block opacity-75">{{ t.weekly_usage }} {{ weekly_used }}/{{ weekly_limit }}</small>
+            <div class="limit-bar mt-1">
+                <div class="limit-bar-fill"
+                     style="width:{{ [weekly_used * 100 // weekly_limit, 100]|min }}%;
+                            background: {% if weekly_used >= weekly_limit %}#ef5350{% elif weekly_used >= weekly_limit - 1 %}#fdd835{% else %}#a5d6a7{% endif %};">
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        <a href="{{ url_for('planning', week=prev_week.isoformat()) }}"
+           class="btn btn-sm btn-outline-light">
+            <i class="bi bi-chevron-{{ 'right' if t.dir == 'rtl' else 'left' }}"></i> {{ t.prev_btn }}
+        </a>
+        <a href="{{ url_for('planning') }}"
+           class="btn btn-sm btn-light text-success fw-bold">{{ t.today_btn }}</a>
+        <a href="{{ url_for('planning', week=next_week.isoformat()) }}"
+           class="btn btn-sm btn-outline-light">
+            {{ t.next_btn }} <i class="bi bi-chevron-{{ 'left' if t.dir == 'rtl' else 'right' }}"></i>
+        </a>
+    </div>
+</div>
+
+<!-- Legend -->
+<div class="d-flex gap-3 mb-3 flex-wrap">
+    <span class="badge" style="background:#f1f8e9;color:#2e7d32;border:1px solid #a5d6a7;">
+        <i class="bi bi-plus-circle me-1"></i>{{ t.legend_free }}
+    </span>
+    <span class="badge" style="background:#ffebee;color:#c62828;border:1px solid #ef9a9a;">
+        <i class="bi bi-x-circle-fill me-1"></i>محجوز
+    </span>
+    {% if public_user and not is_admin %}
+    <span class="badge" style="background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;">
+        <i class="bi bi-star-fill me-1"></i>حجزي
+    </span>
+    {% endif %}
+    {% if is_admin %}
+    <span class="badge" style="background:#e8f5e9;color:#2e7d32;border:1px solid #2e7d32;">
+        <i class="bi bi-check-circle-fill me-1"></i>{{ t.confirmed }}
+    </span>
+    <span class="badge" style="background:#fff8e1;color:#f9a825;border:1px solid #ffe082;">
+        <i class="bi bi-hourglass me-1"></i>{{ t.waiting }}
+    </span>
+    <span class="badge" style="background:#fce4ec;color:#c62828;border:1px solid #ef9a9a;">
+        <i class="bi bi-x-circle me-1"></i>{{ t.cancelled }}
+    </span>
+    {% endif %}
+
+    {% if not is_logged_in %}
+    <a href="{{ url_for('user_login', next=url_for('planning')) }}"
+       class="badge text-decoration-none"
+       style="background:#2e7d32;color:#fff;border:1px solid #1b5e20;">
+        <i class="bi bi-box-arrow-in-right me-1"></i>{{ t.login_to_book }}
+    </a>
+    {% endif %}
+</div>
+
+{% if slots %}
+<div class="card p-0 overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-bordered planning-table mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th class="day-col"><i class="bi bi-calendar3 me-1 opacity-50"></i>{{ t.col_date }}</th>
+                    {% for start, end in slots %}
+                    <th>
+                        <i class="bi bi-clock me-1 opacity-50"></i>{{ start }}<br>
+                        <span style="font-size:.72rem;opacity:.7;">– {{ end }}</span>
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for day_date in week_days %}
+                {% set weekday = day_date.weekday() %}
+                {% set is_today = (day_date == today) %}
+                {% set day_reservations = lookup.get(day_date, {}) %}
+                {% set date_str = day_date.isoformat() %}
+                <tr class="{% if is_today %}today-row{% endif %} {% if weekday >= 5 %}weekend-row{% endif %}">
+                    <td class="day-col">
+                        <div class="day-num">{{ '%02d'|format(day_date.day) }}</div>
+                        <div class="day-label">{{ t.days[weekday] }}</div>
+                        <div style="font-size:.65rem;color:#aaa;">{{ day_date.strftime('%b') }}</div>
+                        {% if is_today %}
+                        <span class="day-badge-today">{{ t.today_badge }}</span>
+                        {% endif %}
+                    </td>
+                    {% for start, end in slots %}
+                    {% set reservation = day_reservations.get(start) %}
+                    <td>
+                        {% if reservation %}
+                            {% if is_admin %}
+                                {% if reservation.statut == 'confirmé' %}
+                                <div class="slot-booked admin-confirmed">
+                                    <span class="slot-name">{{ reservation.nom }}</span>
+                                    <span class="slot-sport"><i class="bi bi-dribbble me-1"></i>{{ reservation.sport }}</span>
+                                    <span class="slot-sport"><i class="bi bi-telephone me-1"></i>{{ reservation.telephone }}</span>
+                                </div>
+                                {% elif reservation.statut == 'en attente' %}
+                                <div class="slot-booked admin-waiting">
+                                    <span class="slot-name">{{ reservation.nom }}</span>
+                                    <span class="slot-sport"><i class="bi bi-hourglass me-1"></i>{{ reservation.sport }}</span>
+                                    <span class="slot-sport"><i class="bi bi-telephone me-1"></i>{{ reservation.telephone }}</span>
+                                </div>
+                                {% else %}
+                                <div class="slot-booked admin-cancelled">
+                                    <span class="slot-name"><s>{{ reservation.nom }}</s></span>
+                                    <span class="slot-sport">{{ t.cancelled }}</span>
+                                </div>
+                                {% endif %}
+                            {% else %}
+                                {% if reservation.statut == 'annulé' %}
+                                <div class="slot-free"
+                                     {% if is_logged_in and weekly_used < weekly_limit %}
+                                     onclick="openReserveModal('{{ date_str }}','{{ start }}','{{ end }}','{{ t.days[weekday] }} {{ '%02d'|format(day_date.day) }}')"
+                                     {% elif is_logged_in %}
+                                     onclick="showLimitModal()"
+                                     {% else %}
+                                     onclick="showLoginModal()"
+                                     {% endif %}
+                                     title="{{ t.book_btn }}">
+                                    <i class="bi bi-plus-circle me-1"></i>{{ t.free }}<br>
+                                    <button class="reserve-btn">{{ t.book_btn }}</button>
+                                </div>
+                                {% elif public_user and reservation.telephone == public_user.telephone %}
+                                <div class="slot-mine">
+                                    <i class="bi bi-star-fill me-1"></i>
+                                    <strong>حجزي</strong><br>
+                                    <span style="font-size:.72rem;opacity:.8;">{{ reservation.sport }}</span>
+                                </div>
+                                {% else %}
+                                <div class="slot-booked" style="color:#c62828;">
+                                    <i class="bi bi-x-circle-fill me-1"></i>
+                                    <strong>محجوز</strong>
+                                </div>
+                                {% endif %}
+                            {% endif %}
+                        {% else %}
+                            <div class="slot-free"
+                                 {% if is_logged_in and weekly_used < weekly_limit %}
+                                 onclick="openReserveModal('{{ date_str }}','{{ start }}','{{ end }}','{{ t.days[weekday] }} {{ '%02d'|format(day_date.day) }}')"
+                                 {% elif is_logged_in %}
+                                 onclick="showLimitModal()"
+                                 {% else %}
+                                 onclick="showLoginModal()"
+                                 {% endif %}
+                                 title="{{ t.book_btn }}">
+                                <i class="bi bi-plus-circle me-1"></i>{{ t.free }}<br>
+                                <button class="reserve-btn">{{ t.book_btn }}</button>
+                            </div>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    Aucun créneau actif. Configurez les créneaux depuis l'espace admin.
+</div>
+{% endif %}
+
+<!-- ── Reservation Modal ──────────────────────────────────────────────────── -->
+{% if is_logged_in %}
+<div class="modal fade" id="reserveModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-calendar-plus me-2"></i>{{ t.modal_title }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('reservation') }}">
+                <div class="modal-body">
+                    <div class="alert alert-success py-2 mb-3" id="slotInfoBanner">
+                        <i class="bi bi-calendar3 me-2"></i><strong id="slotInfoText"></strong>
+                    </div>
+                    <input type="hidden" name="date_reservation" id="modal_date">
+                    <input type="hidden" name="heure_debut"       id="modal_heure_debut">
+                    <input type="hidden" name="heure_fin"         id="modal_heure_fin">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">
+                                {{ t.full_name }} <span class="text-danger">{{ t.required_mark }}</span>
+                            </label>
+                            <input type="text" name="nom" id="modal_nom" class="form-control"
+                                   placeholder="{{ t.full_name_ph }}"
+                                   value="{{ public_user.username if public_user else '' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">
+                                {{ t.phone }} <span class="text-danger">{{ t.required_mark }}</span>
+                            </label>
+                            <input type="tel" name="telephone" id="modal_tel" class="form-control"
+                                   placeholder="{{ t.phone_ph }}"
+                                   value="{{ public_user.telephone if public_user else '' }}"
+                                   {% if public_user %}readonly{% endif %} required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">
+                                {{ t.sport_label }} <span class="text-danger">{{ t.required_mark }}</span>
+                            </label>
+                            <select name="sport" class="form-select" required>
+                                <option value="">{{ t.sport_ph }}</option>
+                                {% for s in t.sports %}
+                                <option>{{ s }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">{{ t.notes_label }}</label>
+                            <textarea name="notes" class="form-control" rows="2"
+                                      placeholder="{{ t.notes_ph }}"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        {{ t.cancel_btn }}
+                    </button>
+                    <button type="submit" class="btn btn-green fw-bold px-4">
+                        <i class="bi bi-send me-1"></i>{{ t.send_btn }}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- ── Login Required Modal ──────────────────────────────────────────────── -->
+<div class="modal fade" id="loginModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content text-center">
+            <div class="modal-header justify-content-center">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-lock me-2"></i>{{ t.login_required_title }}
+                </h5>
+            </div>
+            <div class="modal-body py-4">
+                <i class="bi bi-person-circle text-success" style="font-size:3rem;"></i>
+                <p class="mt-3 text-muted">{{ t.login_required_msg }}</p>
+                <div class="d-flex gap-2 justify-content-center mt-3">
+                    <a href="{{ url_for('user_login', next=url_for('planning')) }}"
+                       class="btn btn-green fw-bold px-4">
+                        <i class="bi bi-box-arrow-in-right me-1"></i>{{ t.connect_btn }}
+                    </a>
+                    <a href="{{ url_for('user_register') }}" class="btn btn-outline-success">
+                        <i class="bi bi-person-plus me-1"></i>{{ t.register_btn }}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Limit Reached Modal ────────────────────────────────────────────────── -->
+<div class="modal fade" id="limitModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content text-center">
+            <div class="modal-header justify-content-center" style="background:#f9a825;color:#fff;">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-exclamation-triangle me-2"></i>{{ t.limit_reached_title }}
+                </h5>
+            </div>
+            <div class="modal-body py-4">
+                <i class="bi bi-calendar-x text-warning" style="font-size:3rem;"></i>
+                <p class="mt-3 text-muted">{{ t.limit_reached_msg.replace('%d', weekly_limit|string) }}</p>
+                <button type="button" class="btn btn-outline-secondary mt-2" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+{% if is_logged_in %}
+function openReserveModal(dateStr, heureDebut, heureFin, label) {
+    document.getElementById('modal_date').value        = dateStr;
+    document.getElementById('modal_heure_debut').value = heureDebut;
+    document.getElementById('modal_heure_fin').value   = heureFin;
+    document.getElementById('slotInfoText').textContent = label + '  ·  ' + heureDebut + ' – ' + heureFin;
+    document.querySelector('#reserveModal form')
+        .querySelectorAll('select,textarea')
+        .forEach(el => el.value = '');
+    new bootstrap.Modal(document.getElementById('reserveModal')).show();
+}
+function showLimitModal() {
+    new bootstrap.Modal(document.getElementById('limitModal')).show();
+}
+{% else %}
+function openReserveModal() { showLoginModal(); }
+{% endif %}
+function showLoginModal() {
+    new bootstrap.Modal(document.getElementById('loginModal')).show();
+}
+</script>
+{% endblock %}

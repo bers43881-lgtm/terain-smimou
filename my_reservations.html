@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}{{ t.my_reservations_title }} – Terrain Smimou{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-0">
+            <i class="bi bi-person-lines-fill me-2 text-success"></i>{{ t.my_reservations_title }}
+        </h4>
+        <small class="text-muted">{{ t.my_reservations_sub }}</small>
+    </div>
+    <a href="{{ url_for('planning') }}" class="btn btn-green">
+        <i class="bi bi-plus-circle me-1"></i>{{ t.book_btn }}
+    </a>
+</div>
+
+<!-- Weekly quota card -->
+<div class="card p-3 mb-4" style="background:{% if weekly_used >= weekly_limit %}#fff3cd{% else %}#e8f5e9{% endif %};
+     border-left: 4px solid {% if weekly_used >= weekly_limit %}#f9a825{% else %}#2e7d32{% endif %};">
+    <div class="d-flex align-items-center gap-3">
+        <i class="bi bi-calendar-week fs-2 {% if weekly_used >= weekly_limit %}text-warning{% else %}text-success{% endif %}"></i>
+        <div class="flex-grow-1">
+            <div class="fw-semibold">{{ t.weekly_usage }} {{ weekly_used }}/{{ weekly_limit }}</div>
+            {% if weekly_used >= weekly_limit %}
+            <small class="text-warning fw-semibold">{{ t.limit_reached_title }} — {{ t.limit_reached_msg.replace('%d', weekly_limit|string) }}</small>
+            {% else %}
+            <small class="text-muted">{{ t.quota_remaining.replace('%d', (weekly_limit - weekly_used)|string) }}</small>
+            {% endif %}
+        </div>
+        <div style="width:120px;">
+            <div class="limit-bar" style="height:8px;border-radius:4px;background:#e0e0e0;overflow:hidden;">
+                <div style="height:100%;border-radius:4px;width:{{ [weekly_used * 100 // weekly_limit, 100]|min }}%;
+                     background: {% if weekly_used >= weekly_limit %}#f9a825{% elif weekly_used >= weekly_limit - 1 %}#ff9800{% else %}#2e7d32{% endif %};
+                     transition:width .3s;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if reservations %}
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>{{ t.col_date }}</th>
+                    <th>{{ t.col_slot }}</th>
+                    <th>{{ t.col_sport }}</th>
+                    <th>{{ t.col_status }}</th>
+                    <th>{{ t.col_actions }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in reservations %}
+                <tr>
+                    <td>
+                        <i class="bi bi-calendar3 me-1 text-muted"></i>
+                        {{ r.date_reservation.strftime('%d/%m/%Y') }}
+                    </td>
+                    <td>
+                        <i class="bi bi-clock me-1 text-muted"></i>
+                        {{ r.heure_debut }} – {{ r.heure_fin }}
+                    </td>
+                    <td>
+                        <span class="badge bg-secondary">{{ r.sport }}</span>
+                    </td>
+                    <td>
+                        <span class="badge bg-{{ r.statut_badge }}">
+                            {% if r.statut == 'confirmé' %}
+                                <i class="bi bi-check-circle me-1"></i>{{ t.confirmed }}
+                            {% elif r.statut == 'en attente' %}
+                                <i class="bi bi-hourglass me-1"></i>{{ t.waiting }}
+                            {% else %}
+                                <i class="bi bi-x-circle me-1"></i>{{ t.cancelled }}
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="d-flex gap-2 flex-wrap">
+                        {% if r.statut == 'confirmé' %}
+                            <a href="{{ url_for('attestation', rid=r.id) }}" target="_blank"
+                               class="btn btn-sm btn-success">
+                                <i class="bi bi-file-earmark-check me-1"></i>{{ t.download_cert }}
+                            </a>
+                        {% endif %}
+                        {% if r.statut != 'annulé' %}
+                        <form method="POST" action="{{ url_for('cancel_reservation', rid=r.id) }}"
+                              onsubmit="return confirm('{{ t.cancel_confirm }}')">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-x-circle me-1"></i>{{ t.cancel_my_booking }}
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="text-muted small"><i class="bi bi-dash"></i></span>
+                        {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card p-5 text-center text-muted">
+    <i class="bi bi-calendar-x fs-1 d-block mb-3 text-success opacity-50"></i>
+    <h5>{{ t.no_my_reservations }}</h5>
+    <p class="mb-3">{{ t.no_my_reservations_sub }}</p>
+    <a href="{{ url_for('planning') }}" class="btn btn-green px-4">
+        <i class="bi bi-plus-circle me-1"></i>{{ t.book_btn }}
+    </a>
+</div>
+{% endif %}
+
+{% endblock %}
